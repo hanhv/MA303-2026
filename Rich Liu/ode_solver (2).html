@@ -1,0 +1,362 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ODE Solver — Euler, Improved Euler, Runge-Kutta 4</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; background: #f9f9f7; color: #1a1a18; padding: 2rem; max-width: 820px; margin: auto; }
+    h1 { font-size: 20px; font-weight: 500; margin-bottom: 1.5rem; }
+    .eq-display { font-family: monospace; font-size: 13px; color: #666; margin-bottom: 1rem;
+                  padding: 8px 12px; background: #efefec; border-radius: 8px; }
+    .controls { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1rem; }
+    .ctrl-group { background: #efefec; border-radius: 8px; padding: 12px; }
+    .ctrl-label { font-size: 12px; color: #666; margin-bottom: 6px; }
+    .ctrl-row { display: flex; align-items: center; gap: 8px; }
+    .ctrl-row input[type=range] { flex: 1; }
+    .ctrl-val { font-size: 13px; font-weight: 500; min-width: 36px; text-align: right; }
+    select { width: 100%; font-size: 13px; padding: 6px 8px; border: 1px solid #ccc;
+             border-radius: 6px; background: white; cursor: pointer; }
+    .method-toggles { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 1.5rem; }
+    .toggle { font-size: 12px; padding: 4px 14px; border-radius: 99px; cursor: pointer;
+              border: 1.5px solid; transition: opacity 0.15s; user-select: none; font-weight: 500; }
+    .toggle.off { opacity: 0.3; }
+    canvas { width: 100%; border-radius: 8px; border: 0.5px solid #ddd; display: block;
+             background: white; }
+    .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-top: 1rem; }
+    .stat { background: #efefec; border-radius: 8px; padding: 10px 12px; }
+    .stat-label { font-size: 11px; color: #666; margin-bottom: 4px; }
+    .stat-val { font-size: 15px; font-weight: 500; }
+    .table-wrap { margin-top: 1.5rem; overflow-x: auto; }
+    table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    th { background: #efefec; padding: 8px 10px; text-align: left; font-weight: 500; border: 0.5px solid #ddd; }
+    td { padding: 6px 10px; border: 0.5px solid #ddd; font-family: monospace; }
+    tr:nth-child(even) td { background: #faf9f7; }
+    .section-title { font-size: 14px; font-weight: 500; margin: 1.5rem 0 0.5rem; }
+    .full-col { grid-column: 1 / -1; }
+  </style>
+</head>
+<body>
+
+<h1>ODE Solver — Euler, Improved Euler, Runge-Kutta 4</h1>
+<div class="eq-display" id="eq-display">dy/dx = y, y(0) = 1 → exact: y = eˣ</div>
+
+<div class="controls">
+  <div class="ctrl-group full-col">
+    <div class="ctrl-label">ODE function</div>
+    <select id="fn-select" onchange="recompute()">
+      <option value="y">dy/dx = y  (exact: eˣ)</option>
+      <option value="xy">dy/dx = x·y  (exact: e^(x²/2))</option>
+      <option value="x">dy/dx = x  (exact: x²/2 + 1)</option>
+      <option value="sinx">dy/dx = sin(x)  (exact: 1 − cos(x))</option>
+      <option value="yx">dy/dx = y − x  (exact: x+1+eˣ⁻¹·(y₀−2))</option>
+    </select>
+  </div>
+  <div class="ctrl-group">
+    <div class="ctrl-label">Step size h</div>
+    <div class="ctrl-row">
+      <input type="range" id="h-slider" min="1" max="20" value="10" oninput="recompute()">
+      <span class="ctrl-val" id="h-val">0.10</span>
+    </div>
+  </div>
+  <div class="ctrl-group">
+    <div class="ctrl-label">x range [0, x_max]</div>
+    <div class="ctrl-row">
+      <input type="range" id="xmax-slider" min="5" max="30" value="20" oninput="recompute()">
+      <span class="ctrl-val" id="xmax-val">2.0</span>
+    </div>
+  </div>
+</div>
+
+<div class="method-toggles">
+  <div class="toggle" id="t-euler"  style="border-color:#378ADD;color:#378ADD;" onclick="toggleMethod('euler')">Euler</div>
+  <div class="toggle" id="t-ieuler" style="border-color:#639922;color:#639922;" onclick="toggleMethod('ieuler')">Improved Euler</div>
+  <div class="toggle" id="t-rk4"   style="border-color:#D85A30;color:#D85A30;" onclick="toggleMethod('rk4')">Runge-Kutta 4</div>
+  <div class="toggle" id="t-exact" style="border-color:#888780;color:#888780;" onclick="toggleMethod('exact')">Exact</div>
+</div>
+
+<canvas id="chart" height="320"></canvas>
+
+<div class="stats">
+  <div class="stat">
+    <div class="stat-label" style="color:#378ADD;">Euler — cumulative error</div>
+    <div class="stat-val" id="err-euler">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label" style="color:#639922;">Improved Euler — cumulative error</div>
+    <div class="stat-val" id="err-ieuler">—</div>
+  </div>
+  <div class="stat">
+    <div class="stat-label" style="color:#D85A30;">RK4 — cumulative error</div>
+    <div class="stat-val" id="err-rk4">—</div>
+  </div>
+</div>
+
+<p class="section-title">Step-by-step table</p>
+<div class="table-wrap">
+  <table id="step-table">
+    <thead>
+      <tr>
+        <th>n</th><th>x</th><th>Exact y</th>
+        <th style="color:#378ADD">Euler y</th><th style="color:#378ADD">|Error|</th>
+        <th style="color:#639922">Imp. Euler y</th><th style="color:#639922">|Error|</th>
+        <th style="color:#D85A30">RK4 y</th><th style="color:#D85A30">|Error|</th>
+      </tr>
+    </thead>
+    <tbody id="step-tbody"></tbody>
+  </table>
+</div>
+
+<script>
+// ── ODE definitions ─────────────────────────────────────────────────────────
+const fns = {
+  y:    { f: (x, y) => y,              exact: x => Math.exp(x),         desc: "dy/dx = y, y(0) = 1 → exact: y = eˣ" },
+  xy:   { f: (x, y) => x * y,         exact: x => Math.exp(x*x/2),     desc: "dy/dx = x·y, y(0) = 1 → exact: y = e^(x²/2)" },
+  x:    { f: (x, y) => x,             exact: x => x*x/2 + 1,           desc: "dy/dx = x, y(0) = 1 → exact: y = x²/2 + 1" },
+  sinx: { f: (x, y) => Math.sin(x),   exact: x => 1 - Math.cos(x),     desc: "dy/dx = sin(x), y(0) = 0 → exact: y = 1 − cos(x)" },
+  yx:   { f: (x, y) => y - x,         exact: x => x + 1 + Math.exp(x - 1) * (1 - 2), desc: "dy/dx = y − x, y(0) = 1 → exact: y = x+1+eˣ⁻¹(y₀−2)" },
+};
+const y0s = { y: 1, xy: 1, x: 1, sinx: 0, yx: 1 };
+
+// ── Method visibility ────────────────────────────────────────────────────────
+const visible = { euler: true, ieuler: true, rk4: true, exact: true };
+const colors  = { euler: '#378ADD', ieuler: '#639922', rk4: '#D85A30', exact: '#888780' };
+
+function toggleMethod(m) {
+  visible[m] = !visible[m];
+  document.getElementById('t-' + m).classList.toggle('off', !visible[m]);
+  draw(window._lastState);
+}
+
+// ── Numerical methods ────────────────────────────────────────────────────────
+function eulerMethod(f, x0, y0, h, n) {
+  const pts = [{ x: x0, y: y0 }];
+  let x = x0, y = y0;
+  for (let i = 0; i < n; i++) {
+    y = y + h * f(x, y);
+    x = x + h;
+    pts.push({ x, y });
+  }
+  return pts;
+}
+
+function improvedEuler(f, x0, y0, h, n) {
+  const pts = [{ x: x0, y: y0 }];
+  let x = x0, y = y0;
+  for (let i = 0; i < n; i++) {
+    const k1 = f(x, y);
+    const yp  = y + h * k1;          // predictor
+    const k2 = f(x + h, yp);
+    y = y + h * (k1 + k2) / 2;       // corrector
+    x = x + h;
+    pts.push({ x, y });
+  }
+  return pts;
+}
+
+function rungeKutta4(f, x0, y0, h, n) {
+  const pts = [{ x: x0, y: y0 }];
+  let x = x0, y = y0;
+  for (let i = 0; i < n; i++) {
+    const k1 = f(x,        y);
+    const k2 = f(x + h/2,  y + h*k1/2);
+    const k3 = f(x + h/2,  y + h*k2/2);
+    const k4 = f(x + h,    y + h*k3);
+    y = y + h * (k1 + 2*k2 + 2*k3 + k4) / 6;
+    x = x + h;
+    pts.push({ x, y });
+  }
+  return pts;
+}
+
+// ── Error ────────────────────────────────────────────────────────────────────
+function cumulativeError(pts, exact) {
+  return pts.reduce((sum, p) => {
+    const e = exact(p.x);
+    return (isFinite(e) && isFinite(p.y)) ? sum + Math.abs(p.y - e) : sum;
+  }, 0);
+}
+
+// ── Main compute + render ────────────────────────────────────────────────────
+function recompute() {
+  const key   = document.getElementById('fn-select').value;
+  const hRaw  = parseInt(document.getElementById('h-slider').value);
+  const h     = hRaw / 100;
+  const xmaxR = parseInt(document.getElementById('xmax-slider').value);
+  const xmax  = xmaxR / 10;
+
+  document.getElementById('h-val').textContent    = h.toFixed(2);
+  document.getElementById('xmax-val').textContent = xmax.toFixed(1);
+  document.getElementById('eq-display').textContent = fns[key].desc;
+
+  const fn = fns[key].f;
+  const ex = fns[key].exact;
+  const y0 = y0s[key];
+  const n  = Math.round(xmax / h);
+
+  const pEuler  = eulerMethod(fn, 0, y0, h, n);
+  const pIEuler = improvedEuler(fn, 0, y0, h, n);
+  const pRk4    = rungeKutta4(fn, 0, y0, h, n);
+
+  const exactPts = [];
+  for (let i = 0; i <= n * 4; i++) {
+    const x = i * xmax / (n * 4);
+    exactPts.push({ x, y: ex(x) });
+  }
+
+  const eE = cumulativeError(pEuler,  ex);
+  const eI = cumulativeError(pIEuler, ex);
+  const eR = cumulativeError(pRk4,    ex);
+
+  document.getElementById('err-euler').textContent  = isFinite(eE) ? eE.toFixed(6) : '∞';
+  document.getElementById('err-ieuler').textContent = isFinite(eI) ? eI.toFixed(6) : '∞';
+  document.getElementById('err-rk4').textContent    = isFinite(eR) ? eR.toFixed(8) : '∞';
+
+  const state = { pEuler, pIEuler, pRk4, exactPts, xmax, ex };
+  window._lastState = state;
+  draw(state);
+  buildTable(pEuler, pIEuler, pRk4, ex, n);
+}
+
+// ── Table ────────────────────────────────────────────────────────────────────
+function buildTable(pE, pI, pR, exact, n) {
+  const tbody = document.getElementById('step-tbody');
+  tbody.innerHTML = '';
+  const rows = Math.min(n + 1, 50); // cap at 50 rows for readability
+  for (let i = 0; i < rows; i++) {
+    const x = pE[i].x;
+    const ey = exact(x);
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>${i}</td>
+      <td>${x.toFixed(4)}</td>
+      <td>${isFinite(ey)  ? ey.toFixed(6) : '—'}</td>
+      <td>${isFinite(pE[i].y) ? pE[i].y.toFixed(6) : '∞'}</td>
+      <td>${isFinite(ey) && isFinite(pE[i].y) ? Math.abs(pE[i].y - ey).toFixed(6) : '—'}</td>
+      <td>${isFinite(pI[i].y) ? pI[i].y.toFixed(6) : '∞'}</td>
+      <td>${isFinite(ey) && isFinite(pI[i].y) ? Math.abs(pI[i].y - ey).toFixed(6) : '—'}</td>
+      <td>${isFinite(pR[i].y) ? pR[i].y.toFixed(6) : '∞'}</td>
+      <td>${isFinite(ey) && isFinite(pR[i].y) ? Math.abs(pR[i].y - ey).toFixed(8) : '—'}</td>
+    `;
+    tbody.appendChild(tr);
+  }
+  if (n + 1 > 50) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td colspan="9" style="text-align:center;color:#999;">… ${n - 49} more rows (decrease x_max or increase h)</td>`;
+    tbody.appendChild(tr);
+  }
+}
+
+// ── Canvas drawing ───────────────────────────────────────────────────────────
+function draw({ pEuler, pIEuler, pRk4, exactPts, xmax, ex }) {
+  const canvas = document.getElementById('chart');
+  const dpr = window.devicePixelRatio || 1;
+  const w = canvas.parentElement.clientWidth;
+  canvas.width  = w * dpr;
+  canvas.height = 320 * dpr;
+  canvas.style.width  = w + 'px';
+  canvas.style.height = '320px';
+  const ctx = canvas.getContext('2d');
+  ctx.scale(dpr, dpr);
+  const cw = w, ch = 320;
+  const pad = { top: 20, right: 16, bottom: 40, left: 56 };
+  const pw = cw - pad.left - pad.right;
+  const ph = ch - pad.top  - pad.bottom;
+
+  const allY = [
+    ...(visible.euler  ? pEuler  : []),
+    ...(visible.ieuler ? pIEuler : []),
+    ...(visible.rk4    ? pRk4   : []),
+    ...(visible.exact  ? exactPts: []),
+  ].map(p => p.y).filter(isFinite);
+
+  if (!allY.length) return;
+  const yMin = Math.min(...allY);
+  const yMax = Math.max(...allY);
+  const yPad = (yMax - yMin) * 0.08 || 0.5;
+
+  const toX = x  => pad.left + (x / xmax) * pw;
+  const toY = y  => pad.top  + ph - ((y - yMin + yPad) / (yMax - yMin + 2 * yPad)) * ph;
+
+  const gridColor  = 'rgba(0,0,0,0.06)';
+  const axisColor  = 'rgba(0,0,0,0.2)';
+  const labelColor = 'rgba(0,0,0,0.45)';
+
+  ctx.clearRect(0, 0, cw, ch);
+  ctx.font = '11px system-ui, sans-serif';
+
+  // Grid + labels
+  for (let i = 0; i <= 4; i++) {
+    const y  = yMin - yPad + (yMax - yMin + 2 * yPad) * i / 4;
+    const cy = toY(y);
+    ctx.strokeStyle = gridColor; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(pad.left, cy); ctx.lineTo(pad.left + pw, cy); ctx.stroke();
+    ctx.fillStyle = labelColor; ctx.textAlign = 'right';
+    ctx.fillText(y.toFixed(2), pad.left - 6, cy + 4);
+  }
+  for (let i = 0; i <= 5; i++) {
+    const x  = xmax * i / 5;
+    const cx = toX(x);
+    ctx.strokeStyle = gridColor; ctx.lineWidth = 0.5;
+    ctx.beginPath(); ctx.moveTo(cx, pad.top); ctx.lineTo(cx, pad.top + ph); ctx.stroke();
+    ctx.fillStyle = labelColor; ctx.textAlign = 'center';
+    ctx.fillText(x.toFixed(1), cx, pad.top + ph + 18);
+  }
+
+  ctx.strokeStyle = axisColor; ctx.lineWidth = 0.5;
+  ctx.strokeRect(pad.left, pad.top, pw, ph);
+  ctx.fillStyle = labelColor; ctx.textAlign = 'center';
+  ctx.fillText('x', pad.left + pw / 2, ch - 4);
+  ctx.save(); ctx.translate(12, pad.top + ph / 2); ctx.rotate(-Math.PI / 2);
+  ctx.fillText('y', 0, 0); ctx.restore();
+
+  // Polyline helper
+  function polyline(pts, color, dash = []) {
+    const valid = pts.filter(p => isFinite(p.y));
+    if (!valid.length) return;
+    ctx.beginPath();
+    ctx.strokeStyle = color; ctx.lineWidth = 1.8;
+    ctx.setLineDash(dash);
+    ctx.moveTo(toX(valid[0].x), toY(valid[0].y));
+    for (let i = 1; i < valid.length; i++) ctx.lineTo(toX(valid[i].x), toY(valid[i].y));
+    ctx.stroke(); ctx.setLineDash([]);
+  }
+  function dots(pts, color) {
+    ctx.fillStyle = color;
+    for (const p of pts) {
+      if (!isFinite(p.y)) continue;
+      ctx.beginPath(); ctx.arc(toX(p.x), toY(p.y), 2.5, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  if (visible.exact)  polyline(exactPts, colors.exact, [6, 3]);
+  if (visible.euler)  { polyline(pEuler,  colors.euler);  dots(pEuler,  colors.euler);  }
+  if (visible.ieuler) { polyline(pIEuler, colors.ieuler); dots(pIEuler, colors.ieuler); }
+  if (visible.rk4)    { polyline(pRk4,    colors.rk4);    dots(pRk4,    colors.rk4);    }
+
+  // Legend
+  const legend = [
+    { label: 'Euler',          color: colors.euler,  dash: [] },
+    { label: 'Improved Euler', color: colors.ieuler, dash: [] },
+    { label: 'RK4',            color: colors.rk4,   dash: [] },
+    { label: 'Exact',          color: colors.exact,  dash: [6, 3] },
+  ].filter((_, i) => [visible.euler, visible.ieuler, visible.rk4, visible.exact][i]);
+
+  let lx = pad.left + 8;
+  for (const { label, color, dash } of legend) {
+    ctx.strokeStyle = color; ctx.lineWidth = 1.8;
+    ctx.setLineDash(dash);
+    ctx.beginPath(); ctx.moveTo(lx, pad.top + 10); ctx.lineTo(lx + 20, pad.top + 10); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = color; ctx.textAlign = 'left'; ctx.font = '11px system-ui, sans-serif';
+    ctx.fillText(label, lx + 24, pad.top + 14);
+    lx += 24 + ctx.measureText(label).width + 16;
+  }
+}
+
+recompute();
+window.addEventListener('resize', () => { if (window._lastState) draw(window._lastState); });
+</script>
+</body>
+</html>

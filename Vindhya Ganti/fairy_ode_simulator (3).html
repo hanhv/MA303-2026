@@ -1,0 +1,939 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>✨ Fairy ODE Simulator ✨</title>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;500;600;700&family=Pacifico&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --pink0: #fff0f7;
+    --pink1: #ffd6ec;
+    --pink2: #ffadd8;
+    --pink3: #ff7fc0;
+    --pink4: #ff4da6;
+    --pink5: #e0007a;
+    --lavender: #f3e8ff;
+    --lavender2: #d8b4fe;
+    --lavender3: #a855f7;
+    --mint: #e0fdf4;
+    --mint2: #6ee7b7;
+    --mint3: #059669;
+    --yellow: #fef9c3;
+    --yellow2: #fde047;
+    --text: #5b1a4a;
+    --text2: #9d2f6f;
+    --text3: #c084a0;
+    --white: #ffffff;
+    --shadow: 0 4px 24px rgba(255,77,166,0.13);
+    --shadow2: 0 8px 40px rgba(255,77,166,0.18);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Quicksand', sans-serif;
+    background: linear-gradient(135deg, #fff0f7 0%, #f3e8ff 40%, #ffd6ec 70%, #fff0f7 100%);
+    min-height: 100vh;
+    color: var(--text);
+    overflow-x: hidden;
+  }
+
+  /* Floating sparkles background */
+  .sparkle-bg {
+    position: fixed; inset: 0; pointer-events: none; z-index: 0; overflow: hidden;
+  }
+  .sp {
+    position: absolute;
+    font-size: 18px;
+    animation: floatSp linear infinite;
+    opacity: 0.35;
+  }
+  @keyframes floatSp {
+    0% { transform: translateY(110vh) rotate(0deg); opacity: 0; }
+    10% { opacity: 0.35; }
+    90% { opacity: 0.35; }
+    100% { transform: translateY(-10vh) rotate(360deg); opacity: 0; }
+  }
+
+  .container {
+    position: relative; z-index: 1;
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 2rem 1.5rem 4rem;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 2.5rem;
+  }
+  .main-title {
+    font-family: 'Pacifico', cursive;
+    font-size: 2.6rem;
+    color: var(--pink4);
+    text-shadow: 3px 3px 0px var(--lavender2), 6px 6px 0px rgba(255,77,166,0.15);
+    margin-bottom: 0.4rem;
+  }
+  .subtitle {
+    font-size: 1rem;
+    color: var(--text3);
+    font-weight: 500;
+    letter-spacing: 0.03em;
+  }
+  .eq-pill {
+    display: inline-block;
+    margin-top: 0.75rem;
+    background: white;
+    border: 2px solid var(--pink2);
+    border-radius: 999px;
+    padding: 0.35rem 1.2rem;
+    font-size: 0.95rem;
+    color: var(--text2);
+    font-weight: 600;
+    box-shadow: 0 2px 12px rgba(255,77,166,0.12);
+  }
+
+  /* Cards */
+  .card {
+    background: rgba(255,255,255,0.82);
+    backdrop-filter: blur(12px);
+    border: 2px solid var(--pink1);
+    border-radius: 24px;
+    padding: 1.5rem 1.75rem;
+    box-shadow: var(--shadow);
+    margin-bottom: 1.5rem;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: -30px; right: -30px;
+    width: 100px; height: 100px;
+    border-radius: 50%;
+    background: radial-gradient(circle, var(--pink1) 0%, transparent 70%);
+    pointer-events: none;
+  }
+  .card-title {
+    font-family: 'Pacifico', cursive;
+    font-size: 1.15rem;
+    color: var(--pink4);
+    margin-bottom: 1.25rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+
+  /* Sliders grid */
+  .sliders-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.25rem;
+  }
+  .slider-group label {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text2);
+    margin-bottom: 0.4rem;
+  }
+  .slider-group label .val-badge {
+    background: var(--pink1);
+    color: var(--pink5);
+    border-radius: 999px;
+    padding: 2px 10px;
+    font-size: 0.82rem;
+    min-width: 48px;
+    text-align: center;
+    border: 1.5px solid var(--pink2);
+  }
+  input[type=range] {
+    -webkit-appearance: none;
+    width: 100%;
+    height: 6px;
+    border-radius: 999px;
+    background: linear-gradient(to right, var(--pink3), var(--lavender2));
+    outline: none;
+    cursor: pointer;
+  }
+  input[type=range]::-webkit-slider-thumb {
+    -webkit-appearance: none;
+    width: 20px; height: 20px;
+    border-radius: 50%;
+    background: var(--white);
+    border: 3px solid var(--pink4);
+    box-shadow: 0 2px 8px rgba(255,77,166,0.3);
+    cursor: pointer;
+    transition: transform 0.15s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover { transform: scale(1.2); }
+
+  /* Damping regime badge */
+  .regime-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 1rem;
+    padding-top: 1rem;
+    border-top: 1.5px dashed var(--pink1);
+    flex-wrap: wrap;
+  }
+  .regime-label { font-size: 0.85rem; font-weight: 600; color: var(--text3); }
+  .regime-badge {
+    border-radius: 999px;
+    padding: 4px 14px;
+    font-size: 0.82rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    border: 2px solid;
+    transition: all 0.3s;
+  }
+  .regime-under  { background: #fff0f7; border-color: var(--pink3); color: var(--pink5); }
+  .regime-crit   { background: var(--lavender); border-color: var(--lavender3); color: var(--lavender3); }
+  .regime-over   { background: var(--mint); border-color: var(--mint3); color: var(--mint3); }
+  .zeta-display {
+    margin-left: auto;
+    font-size: 0.85rem;
+    color: var(--text3);
+    font-weight: 600;
+  }
+
+  /* Canvas panels */
+  .canvas-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+  }
+  @media(max-width: 640px) { .canvas-row { grid-template-columns: 1fr; } }
+
+  canvas {
+    width: 100%;
+    border-radius: 16px;
+    display: block;
+  }
+  .canvas-wrap {
+    position: relative;
+  }
+  .canvas-label {
+    font-size: 0.78rem;
+    font-weight: 700;
+    color: var(--text3);
+    text-align: center;
+    margin-top: 0.5rem;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+  }
+
+  /* Animation canvas specific */
+  #animCanvas { background: #fff8fd; border: 2px solid var(--pink1); }
+  #phaseCanvas { background: #fff8fd; border: 2px solid var(--lavender2); }
+  #responseCanvas { background: #fff8fd; border: 2px solid var(--lavender2); }
+
+  /* Forcing section */
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 1rem;
+  }
+  .toggle-label { font-size: 0.9rem; font-weight: 600; color: var(--text2); }
+  .toggle {
+    position: relative;
+    width: 48px; height: 26px;
+    cursor: pointer;
+  }
+  .toggle input { opacity: 0; width: 0; height: 0; }
+  .toggle-slider {
+    position: absolute; inset: 0;
+    background: var(--pink1);
+    border-radius: 999px;
+    border: 2px solid var(--pink2);
+    transition: background 0.3s;
+  }
+  .toggle-slider::before {
+    content: '';
+    position: absolute;
+    left: 2px; top: 50%; transform: translateY(-50%);
+    width: 18px; height: 18px;
+    border-radius: 50%;
+    background: var(--pink3);
+    transition: transform 0.3s, background 0.3s;
+  }
+  .toggle input:checked + .toggle-slider { background: var(--pink2); }
+  .toggle input:checked + .toggle-slider::before {
+    transform: translateX(22px) translateY(-50%);
+    background: var(--pink4);
+  }
+
+  /* Info math box */
+  .math-info {
+    background: linear-gradient(135deg, var(--lavender) 0%, var(--pink0) 100%);
+    border: 1.5px dashed var(--lavender2);
+    border-radius: 16px;
+    padding: 1rem 1.25rem;
+    font-size: 0.85rem;
+    color: var(--text2);
+    line-height: 1.8;
+    font-weight: 500;
+  }
+  .math-info strong { color: var(--pink5); font-weight: 700; }
+
+  /* Tabs */
+  .tab-row {
+    display: flex;
+    gap: 0.5rem;
+    margin-bottom: 1.25rem;
+    flex-wrap: wrap;
+  }
+  .tab-btn {
+    border: none;
+    border-radius: 999px;
+    padding: 0.35rem 1rem;
+    font-family: 'Quicksand', sans-serif;
+    font-size: 0.85rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    background: var(--pink1);
+    color: var(--text3);
+    border: 2px solid transparent;
+  }
+  .tab-btn.active {
+    background: var(--pink4);
+    color: white;
+    border-color: var(--pink5);
+    box-shadow: 0 2px 12px rgba(255,77,166,0.3);
+  }
+  .tab-btn:hover:not(.active) { border-color: var(--pink3); color: var(--pink5); }
+
+  .panel { display: none; }
+  .panel.active { display: block; }
+
+  /* Play/pause button */
+  .play-btn {
+    background: linear-gradient(135deg, var(--pink3), var(--pink4));
+    color: white;
+    border: none;
+    border-radius: 999px;
+    padding: 0.5rem 1.5rem;
+    font-family: 'Quicksand', sans-serif;
+    font-size: 0.9rem;
+    font-weight: 700;
+    cursor: pointer;
+    box-shadow: 0 4px 16px rgba(255,77,166,0.35);
+    transition: transform 0.15s, box-shadow 0.15s;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .play-btn:hover { transform: scale(1.05); box-shadow: 0 6px 24px rgba(255,77,166,0.4); }
+  .play-btn:active { transform: scale(0.97); }
+
+  .btn-row {
+    display: flex;
+    gap: 0.75rem;
+    align-items: center;
+    margin-bottom: 1rem;
+    flex-wrap: wrap;
+  }
+
+  footer {
+    text-align: center;
+    margin-top: 2rem;
+    font-size: 0.8rem;
+    color: var(--text3);
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<!-- Floating sparkles -->
+<div class="sparkle-bg" id="sparkles"></div>
+
+<div class="container">
+
+  <header>
+    <div class="main-title">✨ Fairy ODE Lab ✨</div>
+    <div class="subtitle">Spring · Mass · Damper System Simulator</div>
+    <div class="eq-pill">my″ + cy′ + ky = F(t)</div>
+  </header>
+
+  <!-- Parameters Card -->
+  <div class="card">
+    <div class="card-title">🌸 System Parameters</div>
+    <div class="sliders-grid">
+      <div class="slider-group">
+        <label>Mass <em>m</em> (kg) <span class="val-badge" id="m-val">1.0</span></label>
+        <input type="range" id="sl-m" min="0.5" max="5" step="0.1" value="1.0">
+      </div>
+      <div class="slider-group">
+        <label>Damping <em>c</em> (N·s/m) <span class="val-badge" id="c-val">0.5</span></label>
+        <input type="range" id="sl-c" min="0" max="10" step="0.1" value="0.5">
+      </div>
+      <div class="slider-group">
+        <label>Stiffness <em>k</em> (N/m) <span class="val-badge" id="k-val">4.0</span></label>
+        <input type="range" id="sl-k" min="0.5" max="20" step="0.5" value="4.0">
+      </div>
+      <div class="slider-group">
+        <label>Init. Displacement <em>y₀</em> <span class="val-badge" id="y0-val">1.5</span></label>
+        <input type="range" id="sl-y0" min="-3" max="3" step="0.1" value="1.5">
+      </div>
+    </div>
+    <div class="regime-row">
+      <span class="regime-label">Damping regime:</span>
+      <span class="regime-badge" id="regime-badge">—</span>
+      <span class="zeta-display" id="zeta-disp">ζ = —</span>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="card">
+    <div class="tab-row">
+      <button class="tab-btn active" onclick="switchTab('motion')">🌷 Motion & Phase</button>
+      <button class="tab-btn" onclick="switchTab('forced')">🌟 Forced Vibration</button>
+      <button class="tab-btn" onclick="switchTab('math')">🧚 The Math</button>
+    </div>
+
+    <!-- Motion & Phase Panel -->
+    <div class="panel active" id="panel-motion">
+      <div class="btn-row">
+        <button class="play-btn" id="play-btn" onclick="togglePlay()">⏸ Pause</button>
+        <button class="play-btn" style="background: linear-gradient(135deg,var(--lavender2),var(--lavender3));" onclick="resetSim()">↺ Reset</button>
+      </div>
+      <div class="canvas-row">
+        <div class="canvas-wrap">
+          <canvas id="animCanvas" width="400" height="300"></canvas>
+          <div class="canvas-label">🌸 Mass-spring animation</div>
+        </div>
+        <div class="canvas-wrap">
+          <canvas id="phaseCanvas" width="400" height="300"></canvas>
+          <div class="canvas-label">🌀 Phase portrait (y vs y′)</div>
+        </div>
+      </div>
+      <div style="margin-top:1rem;">
+        <canvas id="timeCanvas" width="800" height="160" style="border-radius:16px; border:2px solid var(--pink1); background:#fff8fd; width:100%;"></canvas>
+        <div class="canvas-label">📈 Displacement y(t) over time</div>
+      </div>
+    </div>
+
+    <!-- Forced Vibration Panel -->
+    <div class="panel" id="panel-forced">
+      <div class="sliders-grid" style="margin-bottom:1.25rem;">
+        <div class="slider-group">
+          <label>Force amplitude <em>F₀</em> <span class="val-badge" id="f0-val">0.0</span></label>
+          <input type="range" id="sl-f0" min="0" max="5" step="0.1" value="0.0">
+        </div>
+        <div class="slider-group">
+          <label>Drive frequency <em>ω</em> (rad/s) <span class="val-badge" id="w-val">2.0</span></label>
+          <input type="range" id="sl-w" min="0.1" max="10" step="0.1" value="2.0">
+        </div>
+      </div>
+      <div style="margin-bottom:1rem;">
+        <canvas id="forcedTimeCanvas" width="800" height="150" style="border-radius:16px; border:2px solid var(--pink1); background:#fff8fd; width:100%;"></canvas>
+        <div class="canvas-label">🌸 Live displacement y(t) under forcing</div>
+      </div>
+      <div style="margin-bottom:1rem;">
+        <canvas id="responseCanvas" width="800" height="220" style="border-radius:16px; border:2px solid var(--lavender2); background:#fff8fd; width:100%;"></canvas>
+        <div class="canvas-label">🎀 Dynamic amplification factor (DAF) vs driving frequency ω</div>
+      </div>
+      <div class="math-info" id="forced-info"></div>
+    </div>
+
+    <!-- Math Panel -->
+    <div class="panel" id="panel-math">
+      <div class="math-info" id="math-box" style="font-size:0.9rem; line-height:2;"></div>
+    </div>
+
+  </div>
+
+
+</div>
+
+<script>
+// ---- Sparkles ----
+(function(){
+  const emojis = ['✨','🌸','💫','🦋','🌷','⭐','🌺','💕','🌼','🍀'];
+  const bg = document.getElementById('sparkles');
+  for(let i=0;i<22;i++){
+    const s = document.createElement('div');
+    s.className = 'sp';
+    s.textContent = emojis[Math.floor(Math.random()*emojis.length)];
+    s.style.left = Math.random()*100 + 'vw';
+    s.style.fontSize = (12+Math.random()*16) + 'px';
+    s.style.animationDuration = (8+Math.random()*14) + 's';
+    s.style.animationDelay = (Math.random()*12) + 's';
+    bg.appendChild(s);
+  }
+})();
+
+// ---- State ----
+let m=1.0, c=0.5, k=4.0, y0=1.5, v0=0;
+let F0=0.0, omega=2.0;
+let t=0, y=y0, v=v0;
+let running=true;
+let phaseTrail=[];
+let timeTrail=[];
+const MAX_TRAIL=1800;
+const DT=0.016;
+
+// Forced sim state (separate from free-vibration tab)
+let ft=0, fy=1.5, fv=0;
+let forcedTrail=[];
+const MAX_FORCED=500;
+
+function getParams(){
+  m  = parseFloat(document.getElementById('sl-m').value);
+  c  = parseFloat(document.getElementById('sl-c').value);
+  k  = parseFloat(document.getElementById('sl-k').value);
+  y0 = parseFloat(document.getElementById('sl-y0').value);
+  F0 = parseFloat(document.getElementById('sl-f0').value);
+  omega = parseFloat(document.getElementById('sl-w').value);
+}
+
+function wn(){ return Math.sqrt(k/m); }
+function zeta(){ return c/(2*Math.sqrt(m*k)); }
+
+function updateBadges(){
+  document.getElementById('m-val').textContent = m.toFixed(1);
+  document.getElementById('c-val').textContent = c.toFixed(1);
+  document.getElementById('k-val').textContent = k.toFixed(1);
+  document.getElementById('y0-val').textContent = y0.toFixed(1);
+  document.getElementById('f0-val').textContent = F0.toFixed(1);
+  document.getElementById('w-val').textContent = omega.toFixed(1);
+
+  const z = zeta();
+  document.getElementById('zeta-disp').textContent = 'ζ = ' + z.toFixed(3);
+  const badge = document.getElementById('regime-badge');
+  if(z < 0.999){ badge.textContent='🌸 Underdamped'; badge.className='regime-badge regime-under'; }
+  else if(z < 1.001){ badge.textContent='💜 Critically Damped'; badge.className='regime-badge regime-crit'; }
+  else { badge.textContent='🍀 Overdamped'; badge.className='regime-badge regime-over'; }
+
+  updateMathBox();
+  drawFrequencyResponse();
+}
+
+['sl-m','sl-c','sl-k','sl-y0'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',()=>{ getParams(); updateBadges(); resetSim(); });
+});
+['sl-f0','sl-w'].forEach(id=>{
+  document.getElementById(id).addEventListener('input',()=>{ getParams(); ft=0; fy=y0; fv=0; forcedTrail=[]; updateBadges(); });
+});
+
+// ---- ODE solver (RK4 step) ----
+function rk4Step(y, v, t, dt){
+  const f=(y,v,t)=>(-c*v - k*y + F0*Math.cos(omega*t))/m;
+  const k1y=v,             k1v=f(y,v,t);
+  const k2y=v+dt/2*k1v,    k2v=f(y+dt/2*k1y, v+dt/2*k1v, t+dt/2);
+  const k3y=v+dt/2*k2v,    k3v=f(y+dt/2*k2y, v+dt/2*k2v, t+dt/2);
+  const k4y=v+dt*k3v,      k4v=f(y+dt*k3y,   v+dt*k3v,   t+dt);
+  return [y+dt/6*(k1y+2*k2y+2*k3y+k4y), v+dt/6*(k1v+2*k2v+2*k3v+k4v)];
+}
+
+// ---- Animation Canvas ----
+function drawAnimation(){
+  const canvas=document.getElementById('animCanvas');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+
+  // soft bg
+  ctx.fillStyle='#fff8fd';
+  ctx.fillRect(0,0,W,H);
+
+  // ceiling
+  const ceilY=30;
+  ctx.strokeStyle='#ffadd8'; ctx.lineWidth=3;
+  ctx.beginPath(); ctx.moveTo(0,ceilY); ctx.lineTo(W,ceilY); ctx.stroke();
+  // hatch
+  ctx.lineWidth=1.5;
+  for(let x=0;x<W;x+=18){
+    ctx.beginPath(); ctx.moveTo(x,ceilY); ctx.lineTo(x-12,ceilY-12); ctx.stroke();
+  }
+
+  // equilibrium line
+  const eqY = H/2;
+  ctx.setLineDash([6,4]);
+  ctx.strokeStyle='#ffd6ec'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(60,eqY); ctx.lineTo(W-20,eqY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // scale: 80px per unit
+  const scale=70;
+  const massY = eqY - y*scale;
+  const massSize=36;
+  const massX=W/2;
+
+  // spring (zigzag)
+  const springTop=ceilY;
+  const springBot=massY - massSize/2;
+  const springSegments=10;
+  const springAmp=10;
+  ctx.beginPath();
+  ctx.moveTo(massX, springTop);
+  const segH=(springBot-springTop)/springSegments;
+  for(let i=0;i<=springSegments;i++){
+    const sx = (i===0||i===springSegments) ? massX : massX + (i%2===0 ? springAmp : -springAmp);
+    ctx.lineTo(sx, springTop + i*segH);
+  }
+  ctx.strokeStyle='#ff7fc0'; ctx.lineWidth=2.5; ctx.stroke();
+
+  // damper (parallel lines)
+  const dX = massX+28;
+  const dTop=ceilY+20, dBot=massY-massSize/2;
+  const dMid=(dTop+dBot)/2;
+  ctx.strokeStyle='#d8b4fe'; ctx.lineWidth=2;
+  ctx.beginPath(); ctx.moveTo(dX, dTop); ctx.lineTo(dX, dMid-10); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(dX, dBot); ctx.lineTo(dX, dMid+10); ctx.stroke();
+  ctx.strokeRect(dX-8, dMid-10, 16, 20);
+
+  // mass block — cute rounded square
+  const grd = ctx.createLinearGradient(massX-massSize/2, massY-massSize/2, massX+massSize/2, massY+massSize/2);
+  grd.addColorStop(0,'#ff7fc0'); grd.addColorStop(1,'#ff4da6');
+  roundRect(ctx, massX-massSize/2, massY-massSize/2, massSize, massSize, 8);
+  ctx.fillStyle=grd; ctx.fill();
+  ctx.strokeStyle='#e0007a'; ctx.lineWidth=2; ctx.stroke();
+
+  // mass emoji
+  ctx.font='18px serif'; ctx.textAlign='center'; ctx.textBaseline='middle';
+  ctx.fillText('🌸', massX, massY);
+
+  // y value label
+  ctx.font='500 12px Quicksand, sans-serif';
+  ctx.fillStyle='#c084a0'; ctx.textAlign='left'; ctx.textBaseline='middle';
+  ctx.fillText('y = '+y.toFixed(2), 8, massY);
+}
+
+function roundRect(ctx,x,y,w,h,r){
+  ctx.beginPath();
+  ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y); ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+  ctx.lineTo(x+w,y+h-r); ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+  ctx.lineTo(x+r,y+h); ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+  ctx.lineTo(x,y+r); ctx.quadraticCurveTo(x,y,x+r,y);
+  ctx.closePath();
+}
+
+// ---- Phase Portrait ----
+function drawPhase(){
+  const canvas=document.getElementById('phaseCanvas');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#fff8fd'; ctx.fillRect(0,0,W,H);
+
+  const scale = Math.min(W, H) / 7;
+  const scaleY = scale, scaleV = scale;
+  const cx=W/2, cy=H/2;
+
+  // axes
+  ctx.strokeStyle='#ffd6ec'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(20,cy); ctx.lineTo(W-20,cy); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(cx,20); ctx.lineTo(cx,H-20); ctx.stroke();
+
+  // labels
+  ctx.font='500 11px Quicksand,sans-serif'; ctx.fillStyle='#c084a0';
+  ctx.textAlign='center'; ctx.fillText('y', W-12, cy-6);
+  ctx.fillText("y'", cx+4, 14);
+
+  // trail
+  if(phaseTrail.length>1){
+    ctx.beginPath();
+    phaseTrail.forEach(([py,pv],i)=>{
+      const px2 = cx+py*scaleY;
+      const py2 = cy-pv*scaleV;
+      i===0 ? ctx.moveTo(px2,py2) : ctx.lineTo(px2,py2);
+    });
+    const grad=ctx.createLinearGradient(0,0,W,0);
+    grad.addColorStop(0,'rgba(255,125,192,0.2)');
+    grad.addColorStop(1,'rgba(168,85,247,0.9)');
+    ctx.strokeStyle=grad; ctx.lineWidth=2; ctx.stroke();
+  }
+
+  // current point
+  const px=cx+y*scaleY, py2=cy-v*scaleV;
+  ctx.beginPath(); ctx.arc(px,py2,5,0,Math.PI*2);
+  ctx.fillStyle='#ff4da6'; ctx.fill();
+}
+
+// ---- Time Plot ----
+function drawTimePlot(){
+  const canvas=document.getElementById('timeCanvas');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#fff8fd'; ctx.fillRect(0,0,W,H);
+
+  const cy=H/2, scaleY=(H/2-20)/3;
+  ctx.strokeStyle='#ffd6ec'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(30,cy); ctx.lineTo(W-10,cy); ctx.stroke();
+
+  // zero line label
+  ctx.font='500 10px Quicksand,sans-serif'; ctx.fillStyle='#c084a0'; ctx.textAlign='left';
+  ctx.fillText('y=0', 2, cy+3);
+
+  if(timeTrail.length>1){
+    ctx.beginPath();
+    timeTrail.forEach(([tt,yy],i)=>{
+      const px=30+(tt - (timeTrail[0][0])) / (timeTrail[timeTrail.length-1][0]-timeTrail[0][0]+0.001) * (W-40);
+      const py2=cy-yy*scaleY;
+      i===0 ? ctx.moveTo(px,py2) : ctx.lineTo(px,py2);
+    });
+    const grad=ctx.createLinearGradient(0,0,W,0);
+    grad.addColorStop(0,'rgba(255,125,192,0.4)');
+    grad.addColorStop(1,'rgba(255,77,166,1)');
+    ctx.strokeStyle=grad; ctx.lineWidth=2.5; ctx.stroke();
+  }
+}
+
+// ---- Forced time plot ----
+function drawForcedTimePlot(){
+  const canvas=document.getElementById('forcedTimeCanvas');
+  if(!canvas) return;
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#fff8fd'; ctx.fillRect(0,0,W,H);
+  const cy=H/2;
+  ctx.strokeStyle='#ffd6ec'; ctx.lineWidth=1;
+  ctx.beginPath(); ctx.moveTo(30,cy); ctx.lineTo(W-10,cy); ctx.stroke();
+  ctx.font='500 10px Quicksand,sans-serif'; ctx.fillStyle='#c084a0'; ctx.textAlign='left';
+  ctx.fillText('y=0', 2, cy+3);
+  if(forcedTrail.length>1){
+    let maxY=0.001;
+    forcedTrail.forEach(([,yy])=>{ if(Math.abs(yy)>maxY) maxY=Math.abs(yy); });
+    const scaleY=Math.min((H/2-16)/maxY, 300);
+    const tStart=forcedTrail[0][0], tEnd=forcedTrail[forcedTrail.length-1][0];
+    const tRange=Math.max(tEnd-tStart,0.001);
+    ctx.beginPath();
+    forcedTrail.forEach(([tt,yy],i)=>{
+      const px=30+(tt-tStart)/tRange*(W-40);
+      const py=cy - yy*scaleY;
+      i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+    });
+    const grad=ctx.createLinearGradient(0,0,W,0);
+    grad.addColorStop(0,'rgba(255,125,192,0.4)');
+    grad.addColorStop(1,'rgba(255,77,166,1)');
+    ctx.strokeStyle=grad; ctx.lineWidth=2.5; ctx.stroke();
+  }
+}
+
+// ---- Frequency Response (DAF = normalized, no F0 dependency) ----
+function drawFrequencyResponse(){
+  const canvas=document.getElementById('responseCanvas');
+  const ctx=canvas.getContext('2d');
+  const W=canvas.width, H=canvas.height;
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#fff8fd'; ctx.fillRect(0,0,W,H);
+  const padL=48, padR=20, padT=20, padB=36;
+  const pw=W-padL-padR, ph=H-padT-padB;
+  const wMax=10;
+  const wn_=wn(), z=zeta();
+
+  // DAF curve: normalized, independent of F0/k
+  const pts=[];
+  let maxDAF=0;
+  for(let i=0;i<=400;i++){
+    const w=0.05+i/400*wMax;
+    const r=w/wn_;
+    const denom=Math.sqrt((1-r*r)**2+(2*z*r)**2);
+    const daf=1/Math.max(denom,0.005);
+    pts.push([w,daf]);
+    if(daf>maxDAF) maxDAF=daf;
+  }
+  const yMax=Math.min(maxDAF*1.1, 12);
+
+  // axes
+  ctx.strokeStyle='#ffd6ec'; ctx.lineWidth=1.5;
+  ctx.beginPath(); ctx.moveTo(padL,padT); ctx.lineTo(padL,padT+ph); ctx.lineTo(padL+pw,padT+ph); ctx.stroke();
+
+  // y ticks
+  [1,2,3,4,5,6,8,10].forEach(v=>{
+    if(v>yMax) return;
+    const py=padT+ph-(v/yMax)*ph;
+    ctx.strokeStyle='#ffedf7'; ctx.lineWidth=1; ctx.setLineDash([3,3]);
+    ctx.beginPath(); ctx.moveTo(padL,py); ctx.lineTo(padL+pw,py); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle='#c084a0'; ctx.font='500 10px Quicksand,sans-serif'; ctx.textAlign='right';
+    ctx.fillText(v+'x', padL-4, py+4);
+  });
+
+  // axis labels
+  ctx.font='500 11px Quicksand,sans-serif'; ctx.fillStyle='#c084a0';
+  ctx.textAlign='center'; ctx.fillText('ω (rad/s)', padL+pw/2, H-4);
+  ctx.save(); ctx.translate(12,padT+ph/2); ctx.rotate(-Math.PI/2);
+  ctx.fillText('amplification (DAF)', 0, 0); ctx.restore();
+
+  // x ticks
+  for(let w=0;w<=wMax;w+=2){
+    const px=padL+w/wMax*pw;
+    ctx.strokeStyle='#ffedf7'; ctx.lineWidth=1;
+    ctx.beginPath(); ctx.moveTo(px,padT); ctx.lineTo(px,padT+ph); ctx.stroke();
+    ctx.fillStyle='#c084a0'; ctx.textAlign='center'; ctx.font='500 10px Quicksand,sans-serif';
+    ctx.fillText(w, px, padT+ph+14);
+  }
+
+  // wn dashed line
+  const wnPx=padL+wn_/wMax*pw;
+  ctx.strokeStyle='rgba(255,77,166,0.4)'; ctx.lineWidth=1.5; ctx.setLineDash([5,3]);
+  ctx.beginPath(); ctx.moveTo(wnPx,padT); ctx.lineTo(wnPx,padT+ph); ctx.stroke();
+  ctx.setLineDash([]);
+  ctx.fillStyle='#ff4da6'; ctx.font='600 10px Quicksand,sans-serif'; ctx.textAlign='center';
+  ctx.fillText('ωₙ='+wn_.toFixed(1), wnPx, padT+ph+28);
+
+  // DAF=1 reference line
+  const refPy=padT+ph-(1/yMax)*ph;
+  ctx.strokeStyle='rgba(168,85,247,0.25)'; ctx.lineWidth=1; ctx.setLineDash([4,4]);
+  ctx.beginPath(); ctx.moveTo(padL,refPy); ctx.lineTo(padL+pw,refPy); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // curve
+  ctx.beginPath();
+  pts.forEach(([w,daf],i)=>{
+    const px=padL+w/wMax*pw;
+    const py=padT+ph - Math.min(daf/yMax,1)*ph;
+    i===0 ? ctx.moveTo(px,py) : ctx.lineTo(px,py);
+  });
+  const grad=ctx.createLinearGradient(padL,0,padL+pw,0);
+  grad.addColorStop(0,'#ffd6ec'); grad.addColorStop(0.5,'#ff4da6'); grad.addColorStop(1,'#a855f7');
+  ctx.strokeStyle=grad; ctx.lineWidth=3; ctx.stroke();
+  ctx.lineTo(padL+pw,padT+ph); ctx.lineTo(padL,padT+ph); ctx.closePath();
+  ctx.fillStyle='rgba(255,125,192,0.07)'; ctx.fill();
+
+  // current omega dot
+  const r=omega/wn_;
+  const denom=Math.sqrt((1-r*r)**2+(2*z*r)**2);
+  const daf=1/Math.max(denom,0.005);
+  const curPx=padL+omega/wMax*pw;
+  const curPy=padT+ph - Math.min(daf/yMax,1)*ph;
+  ctx.beginPath(); ctx.arc(curPx,curPy,7,0,Math.PI*2);
+  ctx.fillStyle='#ff4da6'; ctx.fill();
+  ctx.strokeStyle='white'; ctx.lineWidth=2.5; ctx.stroke();
+  ctx.fillStyle='#ff4da6'; ctx.font='600 11px Quicksand,sans-serif'; ctx.textAlign='left';
+  ctx.fillText('DAF='+Math.min(daf,99).toFixed(2)+'x', curPx+10, curPy-4);
+
+  const steadyAmp = F0>0 ? (F0/k)*daf : null;
+  document.getElementById('forced-info').innerHTML =
+    '<strong>Dynamic Amplification Factor:</strong> DAF = 1/√[(1−r²)²+(2ζr)²]<br>' +
+    'r = ω/ωₙ = '+omega.toFixed(2)+'/'+wn_.toFixed(2)+' = <strong>'+r.toFixed(3)+'</strong> &nbsp; ' +
+    'ζ = <strong>'+z.toFixed(3)+'</strong> &nbsp; DAF = <strong>'+Math.min(daf,99).toFixed(2)+'×</strong><br>' +
+    (steadyAmp ? 'Steady-state |Y| = (F₀/k)×DAF = ('+F0+'/'+k+')×'+daf.toFixed(2)+' = <strong>'+steadyAmp.toFixed(3)+' m</strong><br>' : '') +
+    (z<0.1 ? '⚠️ Very lightly damped — extreme amplitude near resonance' :
+     z<0.5 ? '🌸 Underdamped — clear resonance peak visible' :
+     z<1   ? '💜 Moderately damped — resonance peak present but tamed' :
+             '🍀 Overdamped — no resonance peak');
+}
+
+// ---- Math Box ----
+function updateMathBox(){
+  const z=zeta(), wn_=wn();
+  const wd=wn_*Math.sqrt(Math.max(1-z*z,0));
+  let sol='';
+  if(z<1){
+    sol=`Underdamped: y(t) = e^(−ζωₙt) · [A cos(ωd t) + B sin(ωd t)]<br>
+         where ωd = ωₙ√(1−ζ²) = <strong>${wd.toFixed(3)} rad/s</strong>`;
+  } else if(z===1){
+    sol=`Critically damped: y(t) = (A + Bt)e^(−ωₙt)`;
+  } else {
+    const r1=-z*wn_+wn_*Math.sqrt(z*z-1);
+    const r2=-z*wn_-wn_*Math.sqrt(z*z-1);
+    sol=`Overdamped: y(t) = A·e^(${r1.toFixed(3)}t) + B·e^(${r2.toFixed(3)}t)`;
+  }
+
+  document.getElementById('math-box').innerHTML=`
+    <strong>Governing ODE:</strong><br>
+    m·y″ + c·y′ + k·y = F(t)<br>
+    ${m}·y″ + ${c}·y′ + ${k}·y = F(t)<br><br>
+    <strong>Standard form:</strong> y″ + 2ζωₙ y′ + ωₙ² y = F(t)/m<br><br>
+    <strong>Natural frequency:</strong> ωₙ = √(k/m) = √(${k}/${m}) = <strong>${wn_.toFixed(4)} rad/s</strong><br>
+    <strong>Damping ratio:</strong> ζ = c/(2√(mk)) = ${c}/(2√(${m}·${k})) = <strong>${z.toFixed(4)}</strong><br><br>
+    <strong>Characteristic equation:</strong> ms² + cs + k = 0<br>
+    Roots: s = −ζωₙ ± ωₙ√(ζ²−1)<br><br>
+    <strong>Homogeneous solution:</strong><br>${sol}<br><br>
+    <strong>Forced response (steady-state):</strong><br>
+    Y_p(t) = |Y|·cos(ωt − φ)<br>
+    |Y| = (F₀/k)/√[(1−r²)²+(2ζr)²], &nbsp; r = ω/ωₙ<br>
+    φ = arctan(2ζr/(1−r²))
+  `;
+}
+
+// ---- Tab switching ----
+function switchTab(name){
+  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('panel-'+name).classList.add('active');
+  event.target.classList.add('active');
+  if(name==='forced'){
+    ft=0; fy=y0; fv=0; forcedTrail=[];
+    drawFrequencyResponse();
+  }
+}
+
+// ---- Sim controls ----
+function togglePlay(){
+  running=!running;
+  document.getElementById('play-btn').textContent = running ? '⏸ Pause' : '▶ Play';
+  if(running) requestAnimationFrame(loop);
+}
+
+function resetSim(){
+  getParams();
+  t=0; y=y0; v=v0;
+  phaseTrail=[]; timeTrail=[];
+  drawAnimation(); drawPhase(); drawTimePlot();
+}
+
+// ---- Main loop ----
+function rk4StepForced(y, v, t, dt, F, w){
+  const f=(y,v,t)=>(-c*v - k*y + F*Math.cos(w*t))/m;
+  const k1y=v,            k1v=f(y,v,t);
+  const k2y=v+dt/2*k1v,   k2v=f(y+dt/2*k1y, v+dt/2*k1v, t+dt/2);
+  const k3y=v+dt/2*k2v,   k3v=f(y+dt/2*k2y, v+dt/2*k2v, t+dt/2);
+  const k4y=v+dt*k3v,     k4v=f(y+dt*k3y,   v+dt*k3v,   t+dt);
+  return [y+dt/6*(k1y+2*k2y+2*k3y+k4y), v+dt/6*(k1v+2*k2v+2*k3v+k4v)];
+}
+
+const activePanel = ()=>document.querySelector('.panel.active')?.id;
+
+function loop(timestamp){
+  if(!running) return;
+  const panel=activePanel();
+  const steps=2;
+
+  if(panel==='panel-motion'){
+    // Free vibration (F0=0 on this tab)
+    for(let s=0;s<steps;s++){
+      [y,v]=rk4Step(y,v,t,DT/steps);
+      t+=DT/steps;
+    }
+    phaseTrail.push([y,v]);
+    timeTrail.push([t,y]);
+    if(phaseTrail.length>MAX_TRAIL) phaseTrail.shift();
+    if(timeTrail.length>MAX_TRAIL) timeTrail.shift();
+    drawAnimation();
+    drawPhase();
+    drawTimePlot();
+  } else if(panel==='panel-forced'){
+    // Forced sim runs independently with current F0/omega
+    for(let s=0;s<steps;s++){
+      [fy,fv]=rk4StepForced(fy,fv,ft,DT/steps,F0,omega);
+      ft+=DT/steps;
+    }
+    forcedTrail.push([ft,fy]);
+    if(forcedTrail.length>MAX_FORCED) forcedTrail.shift();
+    drawForcedTimePlot();
+    drawFrequencyResponse();
+  }
+  requestAnimationFrame(loop);
+}
+
+// ---- Init ----
+getParams();
+updateBadges();
+resetSim();
+requestAnimationFrame(loop);
+</script>
+</body>
+</html>

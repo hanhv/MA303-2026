@@ -1,0 +1,80 @@
+#include <stdio.h>
+#include <math.h>
+
+// Function prototypes
+double f(double x, double y, double a, double b, double c);
+double get_exact(double x, double a, double b, double c, double y0);
+void solve_improved_euler(double a, double b, double c, double y0, double x_end, double h);
+
+int main() {
+    // Variable declarations
+    double a, b, c;
+    double y0, x_end, h;
+
+    // User Input
+    printf("Equation: dy/dx = ax + by + c\n");
+    printf("Enter values for a, b, and c: ");
+    scanf("%lf %lf %lf", &a, &b, &c);
+
+    printf("Enter initial condition y(0): ");
+    scanf("%lf", &y0);
+
+    printf("Enter the end of the interval (x_end): ");
+    scanf("%lf", &x_end);
+
+    printf("Enter the step size (h): ");
+    scanf("%lf", &h);
+
+    // Call the solver
+    solve_improved_euler(a, b, c, y0, x_end, h);
+
+    return 0;
+}
+
+// The differential equation: dy/dx = ax + by + c
+double f(double x, double y, double a, double b, double c) {
+    return (a * x) + (b * y) + c;
+}
+
+/**
+ * Analytical solution for dy/dx = ax + by + c
+ * If b != 0: y = Ce^(bx) - (ax/b) - (a/b^2) - (c/b)
+ * If b == 0: y = (a/2)x^2 + cx + y0
+ */
+double get_exact(double x, double a, double b, double c, double y0) {
+    if (fabs(b) < 1e-9) {
+        return (a / 2.0) * (x * x) + (c * x) + y0;
+    } else {
+        double C = y0 + (a / (b * b)) + (c / b);
+        return C * exp(b * x) - (a * x / b) - (a / (b * b)) - (c / b);
+    }
+}
+
+void solve_improved_euler(double a, double b, double c, double y0, double x_end, double h) {
+    double x = 0.0;
+    double y = y0;
+    double k1, k2, y_pred, y_exact, error_pct;
+
+    printf("\n%-10s | %-10s | %-10s | %-10s | %-10s\n", "x", "yn", "h", "Actual", "Error %");
+    printf("--------------------------------------------------------------------------\n");
+
+    while (x <= x_end + (h / 2.0)) {
+        y_exact = get_exact(x, a, b, c, y0);
+        
+        if (fabs(y_exact) > 1e-9) {
+            error_pct = fabs((y_exact - y) / y_exact) * 100.0;
+        } else {
+            error_pct = 0.0;
+        }
+
+        printf("%-10.2f | %-10.4f | %-10.4f | %-10.4f | %-10.4f%%\n", x, y, h, y_exact, error_pct);
+
+        // Improved Euler Steps
+        k1 = f(x, y, a, b, c);
+        y_pred = y + h * k1;
+        k2 = f(x + h, y_pred, a, b, c);
+        
+        y = y + (h / 2.0) * (k1 + k2);
+        x += h;
+    }
+}

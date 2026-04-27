@@ -1,0 +1,63 @@
+# Imports
+import sympy as sy
+from sympy.integrals.transforms import laplace_transform, inverse_laplace_transform
+
+#Variables
+t, s = sy.symbols('t s', positive=True)
+
+# Computation
+def compute_laplace():
+  function = input("Enter f(t)= ")
+  try:
+    f = sy.sympify(function, locals={'s': s, 't': t})
+    if s in f.free_symbols:
+      print("\nError: f(t) should only contain 't' not 's'.")
+      return
+    result = laplace_transform(f, t, s, noconds=True)
+    print("\nLaplace Transform: ")
+    print("L{", f, "} =", result)
+  except Exception as E:
+    print("Invalid function. Error: ", E)
+
+def compute_inverse():
+  function = input("Enter F(s)= ")
+  try:
+    F = sy.sympify(function, locals={'s': s, 't': t})
+    if t in F.free_symbols:
+      print("\nError: F(s) should only contain 's' not 't'.")
+      return
+    F_rational = sy.together(F)
+    numer, denom = sy.fraction(F_rational)
+    numer_degree = sy.Poly(numer, s).degree() if numer.has(s) else 0
+    denom_degree = sy.Poly(denom, s).degree() if denom.has(s) else 0
+        
+      if numer_degree >= denom_degree:
+          print("\nError: F(s) is not a proper rational function.")
+          print("The degree of the numerator must be less than the denominator.")
+          return
+
+    result = inverse_laplace_transform(F, s, t)
+    print("\nInverse laplace transform: ")
+    print("L^-1{ ", F, "} =", result)
+  except Exception as E:
+    print("Invalid transform. Error: ", E)
+
+# Inputs
+def menu():
+  while True:
+    print("\n Laplace Calculator ")
+    print("Option 1: Laplace Transform")
+    print("Option 2: Inverse Laplace Transform")
+    print("Option 3: END")
+    choice = input("Choose Option: ")
+
+    if choice == "1":
+      compute_laplace()
+    elif choice == "2":
+      compute_inverse()
+    elif choice == "3":
+      print("Calculator Closed")
+      break
+    else:
+      print("Invalid input, please try again!")
+menu()
