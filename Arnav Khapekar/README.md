@@ -46,19 +46,22 @@ The tool was validated against every major stability classification in the MA303
 ### 2. Visual Gallery
 
 #### Nodes (Real Eigenvalues)
-| Stable Node | Unstable Node |
-| :---: | :---: |
-| ![Stable Node](stable_node.png) | ![Unstable Node](unstable_node.png) |
+![](nodes.png)
+<!-- | Stable Node | Unstable Node |
+| :---: | :---: | -->
+<!-- | ![Stable Node](stable_node.png) | ![Unstable Node](unstable_node.png) | -->
 
 #### Spirals (Complex Eigenvalues)
-| Stable Spiral | Unstable Spiral |
+![](spirals.png)
+<!-- | Stable Spiral | Unstable Spiral |
 | :---: | :---: |
-| ![Stable Spiral](stable_spiral.png) | ![Unstable Spiral](unstable_spiral.png) |
+| ![Stable Spiral](stable_spiral.png) | ![Unstable Spiral](unstable_spiral.png) | -->
 
 #### Critical Cases
-| Saddle Point | Center |
+![](saddle-center.png)
+<!-- | Saddle Point | Center |
 | :---: | :---: |
-| ![Saddle Point](saddle_point.png) | ![Center](center.png) |
+| ![Saddle Point](saddle_point.png) | ![Center](center.png) | -->
 
 ---
 
